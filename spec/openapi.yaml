@@ -1,0 +1,870 @@
+openapi: 3.0.0
+info:
+  title: Weather Program API
+  version: 1.0.2
+  description: |-
+    ウェザーニュースLiVEのキャスター、番組、日次スケジュール、クロストーク情報、および関連統計情報を取得・管理するためのAPI。  
+    提供する情報:
+    - キャスター一覧と詳細情報
+    - 番組一覧と詳細情報
+    - 予報士一覧
+    - 日次スケジュール（日付指定での取得、追加、更新、削除）
+    - クロストーク情報（日付指定での取得、追加、更新、削除）
+    - キャスターごとの統計情報 (出演回数、共演回数、クロストーク回数) ※日付範囲指定可能
+    - 番組ごとの統計情報 (キャスター出演回数) ※日付範囲指定可能
+servers:
+  - url: https://api.example.com/v1 # 実際のAPIサーバーのURLに置き換えてください
+
+paths:
+  /casters:
+    get:
+      summary: キャスター一覧を取得
+      description: 登録されている全てのキャスターのリストを取得します。
+      operationId: listCasters
+      tags:
+        - Casters
+      responses:
+        '200':
+          description: キャスター一覧の取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Caster'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /casters/{caster_id}/stats:
+    get:
+      summary: キャスターの統計情報を取得 (日付範囲指定可能)
+      description: |-
+        指定されたキャスターIDに基づいて、関連する統計情報（番組出演、予報士共演、クロストーク）を取得します。
+        オプションで `start_date` と `end_date` クエリパラメータを指定することで、集計対象期間を絞り込めます。
+        パラメータが指定されない場合は、全期間の統計情報が返されます。
+      operationId: getCasterStats
+      tags:
+        - Casters
+      parameters:
+        - name: caster_id
+          in: path
+          required: true
+          description: 統計情報を取得したいキャスターのID
+          schema:
+            type: integer
+            format: int32
+            example: 123
+        - name: start_date
+          in: query
+          required: false
+          description: 統計情報の集計開始日 (YYYY-MM-DD形式)。この日を含む。
+          schema:
+            type: string
+            format: date
+            example: "2023-01-01"
+        - name: end_date
+          in: query
+          required: false
+          description: 統計情報の集計終了日 (YYYY-MM-DD形式)。この日を含む。
+          schema:
+            type: string
+            format: date
+            example: "2023-12-31"
+      responses:
+        '200':
+          description: キャスターの統計情報取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CasterStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFoundCaster'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /programs:
+    get:
+      summary: 番組一覧を取得
+      description: 登録されている全ての番組のリストを取得します。
+      operationId: listPrograms
+      tags:
+        - Programs
+      responses:
+        '200':
+          description: 番組一覧の取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Program'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /programs/{program_id}/stats:
+    get:
+      summary: 番組の統計情報を取得 (日付範囲指定可能)
+      description: |-
+        指定された番組IDに基づいて、関連する統計情報（キャスター出演回数）を取得します。
+        オプションで `start_date` と `end_date` クエリパラメータを指定することで、集計対象期間を絞り込めます。
+        パラメータが指定されない場合は、全期間の統計情報が返されます。
+      operationId: getProgramStats
+      tags:
+        - Programs
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: 統計情報を取得したい番組のID
+          schema:
+            type: integer
+            format: int32
+            example: 1
+        - name: start_date
+          in: query
+          required: false
+          description: 統計情報の集計開始日 (YYYY-MM-DD形式)。この日を含む。
+          schema:
+            type: string
+            format: date
+            example: "2023-01-01"
+        - name: end_date
+          in: query
+          required: false
+          description: 統計情報の集計終了日 (YYYY-MM-DD形式)。この日を含む。
+          schema:
+            type: string
+            format: date
+            example: "2023-12-31"
+      responses:
+        '200':
+          description: 番組の統計情報取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFoundProgram'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /forecasters:
+    get:
+      summary: 予報士一覧を取得
+      description: 登録されている全ての予報士のリストを取得します。
+      operationId: listForecasters
+      tags:
+        - Forecasters
+      responses:
+        '200':
+          description: 予報士一覧の取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Forecaster'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /schedules:
+    get:
+      summary: 特定日のスケジュール一覧を取得
+      description: 指定された日付のスケジュール一覧を取得します。
+      operationId: listSchedulesByDate
+      tags:
+        - Schedules
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: スケジュールを取得したい日付 (YYYY-MM-DD形式)
+          schema:
+            type: string
+            format: date
+            example: "2024-03-15"
+      responses:
+        '200':
+          description: スケジュール一覧の取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailySchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest' # 日付フォーマット不正など
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 新しいスケジュールを追加
+      description: 新しい日次スケジュール項目を追加します。
+      operationId: createSchedule
+      tags:
+        - Schedules
+      requestBody:
+        description: 追加するスケジュール情報
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyScheduleInput'
+      responses:
+        '201':
+          description: スケジュールの追加成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySchedule' # 作成されたリソースを返す
+        '400':
+          $ref: '#/components/responses/BadRequest' # 入力値不正など
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /schedules/{schedule_id}:
+    put:
+      summary: 既存のスケジュールを更新
+      description: 指定されたIDのスケジュール情報を更新します。
+      operationId: updateSchedule
+      tags:
+        - Schedules
+      parameters:
+        - $ref: '#/components/parameters/ScheduleId'
+      requestBody:
+        description: 更新するスケジュール情報
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyScheduleInput'
+      responses:
+        '200':
+          description: スケジュールの更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySchedule' # 更新されたリソースを返す
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFoundSchedule'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: スケジュールを削除
+      description: 指定されたIDのスケジュールを削除します。関連するクロストークも削除される可能性があります（API仕様による）。
+      operationId: deleteSchedule
+      tags:
+        - Schedules
+      parameters:
+        - $ref: '#/components/parameters/ScheduleId'
+      responses:
+        '204':
+          description: スケジュールの削除成功 (No Content)
+        '404':
+          $ref: '#/components/responses/NotFoundSchedule'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /crosstalks:
+    get:
+      summary: 特定日のクロストーク一覧を取得
+      description: 指定された日付のクロストーク一覧を取得します。
+      operationId: listCrossTalksByDate
+      tags:
+        - CrossTalks
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: クロストークを取得したい日付 (YYYY-MM-DD形式)
+          schema:
+            type: string
+            format: date
+            example: "2024-03-15"
+      responses:
+        '200':
+          description: クロストーク一覧の取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CrossTalk'
+        '400':
+          $ref: '#/components/responses/BadRequest' # 日付フォーマット不正など
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 新しいクロストークを追加
+      description: 新しいクロストーク情報を追加します。
+      operationId: createCrossTalk
+      tags:
+        - CrossTalks
+      requestBody:
+        description: 追加するクロストーク情報
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossTalkInput'
+      responses:
+        '201':
+          description: クロストークの追加成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossTalk' # 作成されたリソースを返す
+        '400':
+          $ref: '#/components/responses/BadRequest' # 関連スケジュールID不正など
+        '404':
+          $ref: '#/components/responses/NotFoundSchedule' # 関連スケジュールが見つからない場合
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /crosstalks/{cross_talk_id}:
+    put:
+      summary: 既存のクロストークを更新
+      description: 指定されたIDのクロストーク情報を更新します。
+      operationId: updateCrossTalk
+      tags:
+        - CrossTalks
+      parameters:
+        - $ref: '#/components/parameters/CrossTalkId'
+      requestBody:
+        description: 更新するクロストーク情報
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossTalkInput'
+      responses:
+        '200':
+          description: クロストークの更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossTalk' # 更新されたリソースを返す
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFoundCrossTalk'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: クロストークを削除
+      description: 指定されたIDのクロストークを削除します。
+      operationId: deleteCrossTalk
+      tags:
+        - CrossTalks
+      parameters:
+        - $ref: '#/components/parameters/CrossTalkId'
+      responses:
+        '204':
+          description: クロストークの削除成功 (No Content)
+        '404':
+          $ref: '#/components/responses/NotFoundCrossTalk'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    ScheduleId:
+      name: schedule_id
+      in: path
+      required: true
+      description: 操作対象のスケジュールID
+      schema:
+        type: integer
+        format: int64 # DAILY_SCHEDULE.schedule_id が BIGINT のため
+        example: 1001
+    CrossTalkId:
+      name: cross_talk_id
+      in: path
+      required: true
+      description: 操作対象のクロストークID
+      schema:
+        type: integer
+        format: int64 # CROSS_TALKS.cross_talk_id が BIGINT のため
+        example: 50
+  schemas:
+    # キャスター情報レスポンス用スキーマ
+    Caster:
+      type: object
+      properties:
+        caster_id:
+          type: integer
+          format: int32
+          description: キャスターID
+          example: 123
+        caster_name:
+          type: string
+          description: キャスター名
+          example: "山田 花子"
+        profile:
+          type: string
+          description: プロフィール
+          example: "元気いっぱいのキャスターです。"
+        start_date:
+          type: string
+          format: date
+          description: 活動開始日 (任意)
+          nullable: true
+          example: "2020-04-01"
+        end_date:
+          type: string
+          format: date
+          description: 活動終了日 (任意)
+          nullable: true
+          example: null
+      required:
+        - caster_id
+        - caster_name
+        - profile
+
+    # 番組情報レスポンス用スキーマ
+    Program:
+      type: object
+      properties:
+        program_id:
+          type: integer
+          format: int32
+          description: 番組ID
+          example: 1
+        program_name:
+          type: string
+          description: 番組名
+          example: "Morning"
+        description:
+          type: string
+          description: 番組概要
+          example: "朝一番の天気情報をお届けします。"
+        start_time:
+          type: string
+          # OpenAPI 3.0にはtimeフォーマットは標準定義されていないが、
+          # format: time と記述して意味を示すことは可能 (ツール依存)
+          # RFC3339の partial-time (e.g., "05:00:00") を想定
+          format: time
+          description: 主な開始時刻 (HH:MM:SS)
+          example: "05:00:00"
+        end_time:
+          type: string
+          format: time
+          description: 主な終了時刻 (HH:MM:SS)
+          example: "08:00:00"
+      required:
+        - program_id
+        - program_name
+        - description
+        - start_time
+        - end_time
+
+    # 予報士情報レスポンス用スキーマ
+    Forecaster:
+      type: object
+      properties:
+        forecaster_id:
+          type: integer
+          format: int32
+          description: 予報士ID
+          example: 10
+        forecaster_name:
+          type: string
+          description: 予報士名
+          example: "鈴木 太郎"
+    # キャスター統計情報レスポンス用スキーマ
+    CasterStats:
+      type: object
+      properties:
+        caster_id:
+          type: integer
+          format: int32
+          description: キャスターID
+          example: 123
+        caster_name:
+          type: string
+          description: キャスター名
+          example: "山田 花子"
+        stats_period:
+          type: object
+          description: 統計情報の集計対象期間
+          properties:
+            start_date:
+              type: string
+              format: date
+              description: 集計開始日 (指定されなかった場合はnull)
+              nullable: true
+              example: "2023-01-01"
+            end_date:
+              type: string
+              format: date
+              description: 集計終了日 (指定されなかった場合はnull)
+              nullable: true
+              example: "2023-12-31"
+          required:
+            - start_date
+            - end_date
+        program_appearances:
+          type: array
+          description: 各番組への出演回数リスト (指定期間内)
+          items:
+            $ref: '#/components/schemas/ProgramAppearance'
+        forecaster_coappearances:
+          type: array
+          description: 各予報士との共演回数リスト (指定期間内)
+          items:
+            $ref: '#/components/schemas/ForecasterCoappearance'
+        cross_talks:
+          type: array
+          description: 他のキャスターとのクロストーク回数リスト (指定期間内)
+          items:
+            $ref: '#/components/schemas/CrossTalkCount'
+      required:
+        - caster_id
+        - caster_name
+        - stats_period
+        - program_appearances
+        - forecaster_coappearances
+        - cross_talks
+
+    ProgramAppearance:
+      type: object
+      properties:
+        program_id:
+          type: integer
+          format: int32
+          description: 番組ID
+          example: 1
+        program_name:
+          type: string
+          description: 番組名
+          example: "Morning"
+        count:
+          type: integer
+          format: int32
+          description: 出演回数
+          example: 50
+      required:
+        - program_id
+        - program_name
+        - count
+
+    ForecasterCoappearance:
+      type: object
+      properties:
+        forecaster_id:
+          type: integer
+          format: int32
+          description: 予報士ID
+          example: 10
+        forecaster_name:
+          type: string
+          description: 予報士名
+          example: "鈴木 太郎"
+        count:
+          type: integer
+          format: int32
+          description: 共演回数
+          example: 25
+      required:
+        - forecaster_id
+        - forecaster_name
+        - count
+
+    CrossTalkCount:
+      type: object
+      properties:
+        partner_caster_id:
+          type: integer
+          format: int32
+          description: クロストーク相手のキャスターID
+          example: 456
+        partner_caster_name:
+          type: string
+          description: クロストーク相手のキャスター名
+          example: "田中 太郎"
+        count:
+          type: integer
+          format: int32
+          description: クロストーク回数
+          example: 10
+      required:
+        - partner_caster_id
+        - partner_caster_name
+        - count
+
+    # 番組統計情報レスポンス用スキーマ
+    ProgramStats:
+      type: object
+      properties:
+        program_id:
+          type: integer
+          format: int32
+          description: 番組ID
+          example: 1
+        program_name:
+          type: string
+          description: 番組名
+          example: "Morning"
+        stats_period:
+          type: object
+          description: 統計情報の集計対象期間
+          properties:
+            start_date:
+              type: string
+              format: date
+              description: 集計開始日 (指定されなかった場合はnull)
+              nullable: true
+              example: "2023-01-01"
+            end_date:
+              type: string
+              format: date
+              description: 集計終了日 (指定されなかった場合はnull)
+              nullable: true
+              example: "2023-12-31"
+          required:
+            - start_date
+            - end_date
+        caster_appearances:
+          type: array
+          description: 各キャスターの出演回数リスト (指定期間内)
+          items:
+            $ref: '#/components/schemas/CasterAppearance'
+      required:
+        - program_id
+        - program_name
+        - stats_period
+        - caster_appearances
+
+    CasterAppearance:
+      type: object
+      properties:
+        caster_id:
+          type: integer
+          format: int32
+          description: キャスターID
+          example: 123
+        caster_name:
+          type: string
+          description: キャスター名
+          example: "山田 花子"
+        count:
+          type: integer
+          format: int32
+          description: 出演回数
+          example: 50
+      required:
+        - caster_id
+        - caster_name
+        - count
+
+    # 日次スケジュール情報レスポンス用スキーマ
+    DailySchedule:
+      type: object
+      properties:
+        schedule_id:
+          type: integer
+          format: int64
+          description: スケジュールID
+          example: 1001
+        broadcast_date:
+          type: string
+          format: date
+          description: 放送日
+          example: "2024-03-15"
+        program_id:
+          type: integer
+          format: int32
+          description: 番組ID
+          example: 1
+        program_name: # 冗長だがUI表示に便利
+          type: string
+          description: 番組名
+          example: "Morning"
+        caster_id:
+          type: integer
+          format: int32
+          description: キャスターID
+          example: 123
+        caster_name: # 冗長だがUI表示に便利
+          type: string
+          description: キャスター名
+          example: "山田 花子"
+        forecaster_id:
+          type: integer
+          format: int32
+          description: 予報士ID
+          nullable: true # 予報士がいない場合もある想定
+          example: 10
+        forecaster_name: # 冗長だがUI表示に便利
+          type: string
+          description: 予報士名
+          nullable: true
+          example: "鈴木 太郎"
+      required:
+        - schedule_id
+        - broadcast_date
+        - program_id
+        - program_name
+        - caster_id
+        - caster_name
+        - start_time
+        - end_time
+
+    # 日次スケジュール追加/更新用スキーマ
+    DailyScheduleInput:
+      type: object
+      properties:
+        broadcast_date:
+          $ref: '#/components/schemas/DailySchedule/properties/broadcast_date'
+        program_id:
+          $ref: '#/components/schemas/DailySchedule/properties/program_id'
+        caster_id:
+          $ref: '#/components/schemas/DailySchedule/properties/caster_id'
+        forecaster_id:
+          $ref: '#/components/schemas/DailySchedule/properties/forecaster_id'
+      required:
+        - broadcast_date
+        - program_id
+
+    # クロストーク情報レスポンス用スキーマ
+    CrossTalk:
+      type: object
+      properties:
+        cross_talk_id:
+          type: integer
+          format: int64
+          description: クロストークID
+          example: 50
+        schedule_id_from:
+          type: integer
+          format: int64
+          description: クロストーク元（前の番組）のスケジュールID
+          example: 1001
+        schedule_id_to:
+          type: integer
+          format: int64
+          description: クロストーク先（後の番組）のスケジュールID
+          example: 1002
+      required:
+        - cross_talk_id
+        - schedule_id_from
+        - schedule_id_to
+
+    # クロストーク追加/更新用スキーマ
+    CrossTalkInput:
+      type: object
+      properties:
+        schedule_id_from:
+          $ref: '#/components/schemas/CrossTalk/properties/schedule_id_from'
+        schedule_id_to:
+          $ref: '#/components/schemas/CrossTalk/properties/schedule_id_to'
+      required:
+        - schedule_id_from
+        - schedule_id_to
+
+    # エラーレスポンス用スキーマ
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: エラーコード
+          example: "NOT_FOUND" # または "BAD_REQUEST" など
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "指定されたリソースが見つかりません。" # または "日付のフォーマットが不正です。" など
+      required:
+        - code
+        - message
+
+  responses:
+    InternalServerError:
+      description: サーバー内部エラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "INTERNAL_SERVER_ERROR"
+              message: "サーバー内部で予期せぬエラーが発生しました。"
+    BadRequest:
+      description: |-
+        リクエストパラメータが不正です (例: 日付フォーマット誤り)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "BAD_REQUEST"
+              message: "日付のフォーマットが不正です。YYYY-MM-DD形式で指定してください。"
+    NotFoundCaster:
+      description: 指定されたキャスターIDが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "CASTER_NOT_FOUND"
+              message: "指定されたキャスターIDが見つかりません。" # メッセージは汎用的に
+    NotFoundProgram:
+      description: 指定された番組IDが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "PROGRAM_NOT_FOUND"
+              message: "指定された番組IDが見つかりません。" # メッセージは汎用的に
+    NotFoundForecaster:
+      description: 指定された予報士IDが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "FORECASTER_NOT_FOUND"
+              message: "指定された予報士IDが見つかりません。"
+    NotFoundSchedule:
+      description: 指定されたスケジュールIDが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "SCHEDULE_NOT_FOUND"
+              message: "指定されたスケジュールIDが見つかりません。"
+    NotFoundCrossTalk:
+      description: 指定されたクロストークIDが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            value:
+              code: "CROSSTALK_NOT_FOUND"
+              message: "指定されたクロストークIDが見つかりません。"
+
+# タグ定義
+tags:
+  - name: Casters
+    description: キャスター関連操作
+  - name: Programs
+    description: 番組関連操作
+  - name: Forecasters
+    description: 予報士関連操作
+  - name: Schedules
+    description: 日次スケジュール関連操作
+  - name: CrossTalks
+    description: クロストーク関連操作
